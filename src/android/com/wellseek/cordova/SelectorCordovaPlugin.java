@@ -94,7 +94,7 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
             Runnable runnable = new Runnable() {
                 public void run() {
 
-                    AlertDialog.Builder builder = new AlertDialog.Builder(cordova.getActivity(), SELECTOR_THEME.getAlertBuilderTheme());
+                    AlertDialog.Builder builder = new AlertDialog.Builder(cordova.getActivity(), AlertDialog.THEME_HOLO_LIGHT);
                     builder.setTitle(title);
                     builder.setCancelable(true);
                     List<PickerView> views = null;
@@ -315,11 +315,7 @@ class SelectorTheme {
     }
 
     public int getNumberPickerTextColor() {
-        if (themeColors.equalsIgnoreCase(SelectorCordovaPlugin.LIGHT_THEME)) {
-            return Color.BLACK;
-        }
-
-        return Color.WHITE;
+        return Color.BLACK;
     }
 
     public int getAlertBuilderTheme() {
