@@ -7,6 +7,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.os.Build;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -41,7 +42,7 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
     public static boolean WHEEL_WRAP;
     public static final String LIGHT_THEME = "light";
     public static final String DARK_THEME = "dark";
-    public static SelectorTheme SELECTOR_THEME = null;
+    public static com.wellseek.cordova.SelectorTheme SELECTOR_THEME = null;
 
     private static final String INDEX_KEY = "index";
     private static final String DISPLAY_ITEMS_KEY = "displayItems";
@@ -59,7 +60,7 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
 
     public boolean execute(final String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
 
-        final CordovaInterface cordova = this.cordova; 
+        final CordovaInterface cordova = this.cordova;
 
         if (action.equals("showSelector")) {
 
@@ -87,7 +88,7 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
             final String theme = options.getString(THEME_KEY);
 
             WHEEL_WRAP = Boolean.parseBoolean(wrapSelectorText);
-            SELECTOR_THEME = new SelectorTheme(theme);
+            SELECTOR_THEME = new com.wellseek.cordova.SelectorTheme(theme);
 
             //Log.d(TAG, "Config options: " + config);
 
@@ -97,14 +98,14 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
                     AlertDialog.Builder builder = new AlertDialog.Builder(cordova.getActivity(), AlertDialog.THEME_HOLO_LIGHT);
                     builder.setTitle(title);
                     builder.setCancelable(true);
-                    List<PickerView> views = null;
+                    List<com.wellseek.cordova.PickerView> views = null;
                     try {
                         views = getPickerViews(cordova.getActivity(), items, defaultSelectedItems);
                     } catch (JSONException je) {
                         Log.v(TAG, "Exception: " + je.getMessage());
                     }
 
-                    final List<PickerView> asFinal = views;
+                    final List<com.wellseek.cordova.PickerView> asFinal = views;
                     LinearLayout layout = new LinearLayout(cordova.getActivity());
                     layout.setOrientation(LinearLayout.HORIZONTAL);
 
@@ -161,7 +162,7 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
                                         public void onClick(DialogInterface dialog,
                                                             int id) {
                                             Log.d(TAG, "User canceled");
-                                             callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR));
+                                            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR));
                                             dialog.cancel();
                                         }
                                     });
@@ -181,19 +182,19 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
         return true;
     }
 
-    public static List<PickerView> getPickerViews(Activity activity, JSONArray items, JSONObject defaultSelectedValues) throws JSONException {
-        List<PickerView> views = new ArrayList<PickerView>();
+    public static List<com.wellseek.cordova.PickerView> getPickerViews(Activity activity, JSONArray items, JSONObject defaultSelectedValues) throws JSONException {
+        List<com.wellseek.cordova.PickerView> views = new ArrayList<com.wellseek.cordova.PickerView>();
         for (int i = 0; i < items.length(); ++i) {
             if(defaultSelectedValues != null && defaultSelectedValues.length() == items.length()){
 
                 try {
                     String defaultSelctedValue = defaultSelectedValues.getString(Integer.toString(i));
-                    views.add(new PickerView(activity, items.getJSONArray(i), defaultSelctedValue));
+                    views.add(new com.wellseek.cordova.PickerView(activity, items.getJSONArray(i), defaultSelctedValue));
                 }catch(JSONException je) {
-                    views.add(new PickerView(activity, items.getJSONArray(i), ""));
+                    views.add(new com.wellseek.cordova.PickerView(activity, items.getJSONArray(i), ""));
                 }
             }else {
-                views.add(new PickerView(activity, items.getJSONArray(i), ""));
+                views.add(new com.wellseek.cordova.PickerView(activity, items.getJSONArray(i), ""));
             }
         }
         return views;
@@ -215,28 +216,31 @@ public class SelectorCordovaPlugin extends CordovaPlugin {
 
     public static boolean setNumberPickerTextColor(NumberPicker numberPicker, int color) {
         float myTextSize = 10;
+        try{
+            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q){
+                // Do something for lollipop and above versions
+                numberPicker.setTextColor(color);
+                numberPicker.setOutlineAmbientShadowColor(color);
+            } else{
+                // do something for phones running an SDK before lollipop
+                Field selectorWheelPaintField = numberPicker.getClass()
+                        .getDeclaredField("mSelectorWheelPaint");
+                selectorWheelPaintField.setAccessible(true);
+                ((Paint) selectorWheelPaintField.get(numberPicker)).setColor(color);
+                numberPicker.invalidate();
+            }
+        } catch (NoSuchFieldException e) {
+            System.out.println("setNumberPickerTextColor");
+        } catch (IllegalAccessException e) {
+            System.out.println("setNumberPickerTextColor");
+        }
+
         final int count = numberPicker.getChildCount();
         for (int i = 0; i < count; i++) {
             View child = numberPicker.getChildAt(i);
             if (child instanceof EditText) {
                 try {
-                    Field selectorWheelPaintField = numberPicker.getClass()
-                            .getDeclaredField("mSelectorWheelPaint");
-                    selectorWheelPaintField.setAccessible(true);
-                    ((Paint) selectorWheelPaintField.get(numberPicker)).setColor(color);
                     ((EditText) child).setTextColor(color);
-
-                    //this setTextSize works, but given the 'mTextSize' variable is set in ctor
-                    //the initial values are small, once activated they get larger
-                    //https://android.googlesource.com/platform/frameworks/base.git/+/android-cts-4.2_r1/core/java/android/widget/NumberPicker.java
-                    //((Paint) selectorWheelPaintField.get(numberPicker)).setTextSize(48);
-
-                    numberPicker.invalidate();
-                    return true;
-                } catch (NoSuchFieldException e) {
-                    System.out.println("setNumberPickerTextColor");
-                } catch (IllegalAccessException e) {
-                    System.out.println("setNumberPickerTextColor");
                 } catch (IllegalArgumentException e) {
                     System.out.println("setNumberPickerTextColor");
                 }
@@ -256,7 +260,7 @@ class PickerView {
     private LinearLayout.LayoutParams numPicerParams;
 
     public PickerView(Activity activity, JSONArray args, String defaulSelectedtItem) {
-        dataToShow = SelectorCordovaPlugin.toStringArray(args);
+        dataToShow = com.wellseek.cordova.SelectorCordovaPlugin.toStringArray(args);
         defaultSelectedItemValue = defaulSelectedtItem;
         this.activity = activity;
     }
@@ -278,14 +282,14 @@ class PickerView {
                 picker.setValue(index);
 
             picker.setDisplayedValues(dataToShow);
-            picker.setWrapSelectorWheel(SelectorCordovaPlugin.WHEEL_WRAP);
+            picker.setWrapSelectorWheel(com.wellseek.cordova.SelectorCordovaPlugin.WHEEL_WRAP);
             picker.setFocusable(false);
 
             picker.setFocusableInTouchMode(true);
 
             //turn off soft keyboard
             picker.setDescendantFocusability(NumberPicker.FOCUS_BLOCK_DESCENDANTS);
-            
+
             setNumberPickerTextColor(picker, SELECTOR_THEME.getNumberPickerTextColor());
         }
 
@@ -319,16 +323,10 @@ class SelectorTheme {
     }
 
     public int getAlertBuilderTheme() {
-        if (themeColors.equalsIgnoreCase(SelectorCordovaPlugin.LIGHT_THEME)) {
+        if (themeColors.equalsIgnoreCase(com.wellseek.cordova.SelectorCordovaPlugin.LIGHT_THEME)) {
             return android.R.style.Theme_DeviceDefault_Light_Dialog_Alert;
         }
 
         return android.R.style.Theme_DeviceDefault_Dialog_Alert;
     }
 }
-
-
-
-
-
-
